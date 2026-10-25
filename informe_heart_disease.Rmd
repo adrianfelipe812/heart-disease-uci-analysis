@@ -1,0 +1,522 @@
+---
+title: "Análisis exploratorio de enfermedades cardíacas — UCI Heart Disease"
+author: "Adrian Felipe Grateron Ramirez"
+date: "2026-02-25"
+output:
+  html_document:
+    toc: true
+    toc_depth: 2
+    number_sections: true
+---
+
+## Introducción
+El presente informe tiene como objetivo realizar un análisis exploratorio de datos (EDA) sobre un conjunto de datos relacionados con enfermedades cardíacas.
+Buscamos identificar patrones, distribuciones y relaciones entre variables como: edad, presión arterial, colesterol, frecuencia cardiaca máxima y depresión del ST (oldpeak)
+
+## Metodología
+Limpieza de datos (tanto NA como 0)
+Imputación de valores faltantes con el método Hotdeck
+Conversión de variables (para facilitar diagramas y cálculos)
+Estadística descriptiva
+Gráficos
+
+## Preguntas Orientadoras resueltas:
+## 1. Al igual que los precios de las propiedades, las variables clínicas como el colesterol o la presión arterial pueden tener distribuciones sesgadas. ¿La media de estas variables es representativa del paciente "típico" o la mediana ofrece una mejor perspectiva? ¿Qué indica esto sobre la salud de la población estudiada?
+
+En el archivo analizado, la media y la mediana de colesterol y presión arterial en reposo describen el centro de las distribuciones. Son estadísticos de esta muestra y no bastan para clasificar el riesgo ni diagnosticar a una persona.
+
+## 2. ¿Existe una relación lineal entre la edad de un paciente y su frecuencia cardíaca máxima alcanzada? ¿Esta relación es fuerte o débil y qué podría implicar para el diagnóstico médico?
+
+El diagrama de dispersión nos muestra una tendencia lineal negativa entre la edad y el thalch, por lo tanto, la frecuencia máxima alcanzada va disminuyendo conforme avanza la edad, su relación es débil puesto que podemos observar aun varios individuos con edad avanzada que cuentan con frecuencias cardiacas máximas altas.
+
+## 3. Utilizando un enfoque frecuentista, si seleccionas un paciente hombre al azar de este conjunto de datos, ¿cuál es la probabilidad de que padezca una enfermedad cardíaca? ¿Cómo cambia esta probabilidad si sabes que, además, sufre de dolor en el pecho no relacionado con angina?
+
+En esta muestra, P(enfermedad | hombre) es 63,22%. Al restringir a hombres con dolor no anginoso, P(enfermedad | hombre, dolor no anginoso) es 44,37%. Son proporciones de esta base y no estimaciones clínicas para la población general..
+
+
+## 4. ¿Qué visualizaciones (histogramas, diagramas de caja) son más efectivas para comunicar a un público no técnico (médicos, directivos) los factores de riesgo más evidentes en los datos?
+
+Con el mapa de calor podemos identrificar las variables que presentan mayor asociación con el nivel de enfermedad, con los histogramas vemos la distribución de las variables cuantitativas para detectar las tendencias de la muestra, con el diagrama de barras comparamos las proporciones entre los grupos de hombres y mujeres.
+Tambien encontramos que en los diagramas de caja se encuentra la mediana, la dispersión de cada nivel y valores atípicos.
+Por ultimo, con los gráficos de dispersión vemos la relacion entre las variables y observando las tendencias entre estas.
+
+
+
+## Desarrollo
+### Configuración del entorno
+```{r setup, include=FALSE}
+library(dplyr)
+library(ggplot2)
+library(scales)
+library(moments)
+library(writexl)
+library(naniar)
+library(tidyverse)
+library(readr)
+library(VIM)
+#Cargamos librerías
+```
+
+Cargamos el CSV desde la carpeta data del proyecto.
+```{r cargue_dataset, include=FALSE}
+heart <- read_csv("data/heart_disease_uci.csv")
+```
+
+3.1 y 3.2 Inspección inicial de variables
+```{r Variables_dataset}
+glimpse(heart) #Inspección inicial de variables
+
+###3.2#CLASIFICACIÓN DE VARIABLES:
+##CATEGÓRICAS:
+#id-Nominal (Identificación)
+#sex-Nominal (Genero)
+#dataset-Nominal (nombre Hospital)
+#cp-Nominal (Tipo de dolor de pecho)
+#fbs-Nominal (Azúcar en sangre)
+#restecg-Nominal (Resultado electrocardiograma)
+#exang-Nominal (Angina)
+#thal-Nominal (Tipo de talasemia) 
+
+#slope-Ordinal (Pendiente ST)
+#ca-Ordinal (Número de vasos afectados) 
+#num-Ordinal (Nivel de enfermedad) - 1 Importante
+
+##CUANTITATIVAS:
+# age-Continua (Edad)
+# trestbps-Continua (Presión arterial en reposo)
+# chol-Continua (Colesterol)
+# thalch-Continua (Frecuencia cardíaca máxima) 
+# oldpeak-Continua (Depresión del ST) del electrocardiograma
+```
+
+Revisión celdas vacías
+```{r celdas_NA}
+colSums(is.na(heart))#en consola
+gg_miss_var(heart) #en gráfico
+#Encontramos que tenemos 59 faltantes para trestbps y 30 para chol
+```
+
+Revisión celdas con valor 0 (error de digitación)
+```{r Celdas_0}
+sum(heart$trestbps == 0, na.rm = TRUE) #encontramos 1 valor 0 para trestbps
+sum(heart$chol == 0, na.rm = TRUE) #encontramos 172 valor 0 para chol
+
+```
+
+Transformamos 0 como NA
+```{r 0_NA, echo=FALSE}
+heart_na <- heart %>%
+  mutate(
+    trestbps = ifelse(trestbps == 0, NA, trestbps),
+    chol = ifelse(chol == 0, NA, chol)
+  ) 
+#Validamos
+colSums(is.na(heart_na))
+```
+
+imputamos con Hot Deck estratificada por dominios
+```{r Imputaciones, echo=FALSE}
+set.seed(20260225)
+# Imputación 1
+heart_imp <- hotdeck(
+  data = heart_na,
+  variable = c("trestbps", "chol", "thalch", "oldpeak",
+               "fbs", "exang", "slope", "ca", "thal"),
+  domain_var = c("sex", "dataset", "cp"),
+  ord_var = c("age")
+)
+colSums(is.na(heart_imp)) #revisamos las imputaciones, como quedan 123 en chol, ampliamos el dominio
+
+#imputacion 2
+heart_imp2 <- hotdeck(
+  data = heart_na,
+  variable = c("trestbps", "chol", "thalch", "oldpeak",
+               "fbs", "exang", "slope", "ca", "thal"),
+  domain_var = c("sex", "cp"),
+  ord_var = c("age")
+)
+colSums(is.na(heart_imp2)) #ahora si tenemos 0 faltantes en las cuantitativas
+```
+
+3.3 Calcular medidas de resumen numericas
+```{r heart_numerica, echo=FALSE}
+heart_numerica <- heart_imp2[, c("age", "trestbps", "chol", "thalch", "oldpeak")]
+summary(heart_numerica)
+```
+En el archivo analizado, la media y la mediana de colesterol y presión arterial en reposo describen el centro de las distribuciones. Son estadísticos de esta muestra y no bastan para clasificar el riesgo ni diagnosticar a una persona.
+
+
+
+3.4 Calcular tendencia central: media, mediana
+3.5 Calcular desviacion estandar, rango intercuartilico (IQR), coeficiente de variacion
+```{r resumen_calculo, echo=FALSE}
+#agrupamos por nivel de enfermedad (num)
+resumen_calculo <- heart_imp2 |>
+  select(num, age, trestbps, chol, thalch, oldpeak) |>
+  group_by(num) |>
+  summarise(
+    n = n(),
+    #age
+    media_age = mean(age, na.rm = TRUE),
+    mediana_age = median(age, na.rm = TRUE), #Tambien lo podemos hacer con mediana_age=quantile(age,probs=0.50),
+    SD_age = sd(age, na.rm = TRUE), 
+    IQR_age = IQR(age, na.rm = TRUE), 
+    CV_age = SD_age / media_age,
+   
+    #trestbps
+    media_trestbps = mean(trestbps, na.rm = TRUE),
+    mediana_trestbps = median(trestbps, na.rm = TRUE),
+    SD_trestbps = sd(trestbps, na.rm = TRUE), 
+    IQR_trestbps = IQR(trestbps, na.rm = TRUE), 
+    CV_trestbps = SD_trestbps / media_trestbps,
+    #chol
+    media_chol = mean(chol, na.rm = TRUE),
+    mediana_chol = median(chol, na.rm = TRUE),
+    SD_chol = sd(chol, na.rm = TRUE), 
+    IQR_chol = IQR(chol, na.rm = TRUE), 
+    CV_chol = SD_chol / media_chol,
+    #thalch
+    media_thalch = mean(thalch, na.rm = TRUE),
+    mediana_thalch = median(thalch, na.rm = TRUE),
+    SD_thalch = sd(thalch, na.rm = TRUE), 
+    IQR_thalch = IQR(thalch, na.rm = TRUE), 
+    CV_thalch = SD_thalch / media_thalch,
+    #oldpeak
+    media_oldpeak = mean(oldpeak, na.rm = TRUE),
+    mediana_oldpeak = median(oldpeak, na.rm = TRUE),
+    SD_oldpeak = sd(oldpeak, na.rm = TRUE), 
+    IQR_oldpeak = IQR(oldpeak, na.rm = TRUE), 
+    CV_oldpeak = SD_oldpeak / media_oldpeak,
+    
+    .groups = "drop"
+  )
+resumen_calculo #queda como tibble
+as.data.frame(resumen_calculo) #como data frame
+```
+
+3.6 Interpretacion agrupando los datos de cada variable numerica con el nivel de enfermedad (num)
+
+AGE
+```{r resumen_age}
+resumen_age <- resumen_calculo |>
+  select(num, n, media_age,mediana_age, SD_age, IQR_age, CV_age)
+resumen_age
+```
+Mientras la edad aumenta, el nivel de enfermedad es mayor, podemos apreciar que hay menos variación en el IQR y en el CV para el nivel de enfermedad 4, por lo tanto hay menor variación de edad en el ultimo nivel de enfermedad, así mismo podemos asociar las edades tempranas de enfermedad desde un aproximado de los 55 años.
+
+TRESTBPS
+```{r resumen_trestbps}
+resumen_trestbps <- resumen_calculo |>
+  select(num, n, media_trestbps,mediana_trestbps, SD_trestbps, IQR_trestbps, CV_trestbps)
+resumen_trestbps
+```
+La presión en reposo aumenta gradualmente con respecto al nivel de enfermedad, pero tanto su IQR como su CV es menor para los niveles decrecientes, lo cual nos indica que hay menor variación en personas con nivel de enfermedad bajo.
+
+CHOL
+```{r resumen_chol}
+resumen_chol <- resumen_calculo |>
+  select(num, n, media_chol,mediana_chol, SD_chol, IQR_chol, CV_chol)
+resumen_chol
+```
+Con la transformación de datos en 0 podemos apreciar que a niveles mas altos de colesterol, es mayor el nivel de riesgo de enfermedad, de igual forma, para el nivel 4 este deciende, puede deberse a la cantidad de la muestra (28 individuos)
+Un nivel de alarma puede ser colesterol mayor a 248
+
+THALCH
+```{r resumen_thalch}
+resumen_thalch <- resumen_calculo |>
+  select(num, n, media_thalch,mediana_thalch, SD_thalch, IQR_thalch, CV_thalch)
+resumen_thalch
+```
+La frecuencia cardiaca maxima es menor conforme el nivel de enfermedad aumenta, con una mayor variacion de los datos en el nivel 3, debido a su coeficiente de variacion
+Podemos identificar nivel de riesgo ascendente desde una frecuencia cardiaca maxima menor a 130
+
+OLDPEAK
+```{r resumen_oldpeak}
+resumen_oldpeak <- resumen_calculo |>
+  select(num, n, media_oldpeak,mediana_oldpeak, SD_oldpeak, IQR_oldpeak, CV_oldpeak)
+resumen_oldpeak
+```
+El coeficiente de variacion del oldpeak es muy alto en todos los niveles, los valores de oldpeak aumentan con respecto al nivel de enfermedad
+Podemos afirmar que a mayor oldpeak tenemos mayor nivel de enfermedad, pero es dificil definir un limite de riesgo teniendo en cuenta los datos actuales
+
+4 Analisis de asociacion y probabilidad
+4.1 Calcular la matriz de correlacion de Pearson
+```{r correlacion}
+correlaciones_num <- heart_imp2 %>%
+  dplyr::summarise( #con dplyr para juntar
+    correlacion_age       = cor(num, age, use = "complete.obs"),
+    correlacion_trestbps  = cor(num, trestbps, use = "complete.obs"),
+    correlacion_chol      = cor(num, chol, use = "complete.obs"),
+    correlacion_thalch    = cor(num, thalch, use = "complete.obs"),
+    correlacion_oldpeak   = cor(num, oldpeak, use = "complete.obs")
+  )
+correlaciones_num
+```
+
+4.2 Mapa de calor variables con respecto al nivel de enfermedad
+```{r mapa_calor}
+cor_long <- correlaciones_num %>%
+  pivot_longer(
+    cols = everything(),
+    names_to = "Variable",
+    values_to = "Correlacion"
+  )
+cor_long$Variable <- gsub("correlacion_", "", cor_long$Variable)
+library(ggplot2)
+
+Mapa_calor <- ggplot(cor_long, aes(x = Variable, y = "Enfermedad (num)", fill = Correlacion)) +
+  geom_tile(color = "white") +
+  geom_text(aes(label = round(Correlacion, 2)), size = 5) +
+  scale_fill_gradient2(
+    low = "red",
+    mid = "white",
+    high = "green",
+    midpoint = 0
+  ) +
+  labs(
+    title = "Mapa de calor: Nivel de enfermedad",
+    x = "Variables clínicas",
+    y = ""
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(panel.grid = element_blank())
+
+Mapa_calor
+```
+Podemos apreciar el siguiente orden de correlaciones:
+1 oldpeak positiva
+2 thalch negativa
+3 age positiva
+4 trest bps positiva
+5 chol positiva
+
+5 Visualizacion exploratoria de datos
+5.1# continuas en histograma
+
+```{r histogramas, echo=FALSE}
+variables <- c("age", "trestbps", "chol", "thalch", "oldpeak")
+
+for (var in variables) {
+  print(
+    ggplot(heart_imp2, aes(x = .data[[var]])) +
+      geom_histogram(bins = 30, fill = "#2C7FB8", color = "black") +
+      labs(title = paste("Distribución de", var),
+           x = var,
+           y = "Frecuencia") +
+      theme_minimal()
+  )
+}
+```
+age muestra una asimetría ligeramente negativa, con concentración entre los 45 y 65 años, la población es mayormente adultos mayores
+
+trestbps muestra una asimetría ligeramente positiva, con valores aislados, y una concentración entre 120 y 160, en su mayoría cuentan con presión alta
+
+chol muestra una asimetría positiva, con concentración entre 200 y 350, la mayoría de individuos de la muestra presdenta niveles con alto nivel de colesterol
+
+thalch muestra una asimetría simétrica, concentrandose entre 100 y 190, la dispersión es normal teniendo en cuenta que la presión maxima es variable teniendo en cuenta la edad
+
+oldpeak cuenta con una asimetría positiva y algunos valores negativos, que deben interpretarse con cautela según la definición y el registro de la variable
+
+5.2 Diagrama de barras para variable categoricas
+```{r barras, echo=FALSE}
+#convertir mujer y hombre como 0 y 1
+heart_2 <- heart_imp2 %>%
+  mutate(
+    sex = ifelse(sex == "Female", 0, 1),
+    num = factor(num)
+  )
+ggplot(heart_2, aes(x = sex, fill = num)) +
+  geom_bar(position = "dodge",
+           color = "black",
+           alpha = 0.8) +
+  labs(
+    title = "Distribución de enfermedad cardíaca por sexo",
+    x = "Sexo, 0 mujer, 1 hombre",
+    y = "Número de individuos",
+    fill = "Nivel de enfermedad"
+  ) +
+  theme_minimal(base_size = 20)
+
+```
+Podemos apreciar que un nivel de enfermedad mayor a 0, es mas frecuente en los hombres, así mismo que los primeros niveles de enfermedad son mayores en los hombres.
+
+5.3 Diagrama de caja (Boxplot) para distribucion de variables numericas entre diferentes categorias
+```{r caja, echo=FALSE}
+Box_num_thalch <- ggplot(heart_imp2, aes(x = factor(num), y = thalch)) +
+  geom_boxplot() +
+  labs(
+    title = "Distribucion de thalch con nivel de enfermedad",
+    x = "nivel de enfermedad",
+    y = "Frecuencia cardiaca maxima (thalch)"
+  ) +
+  theme_minimal(base_size = 20)
+Box_num_thalch
+
+```
+apreciamos de una manera mas grafica la tendencia decreciente de la frecuencia cardiaca maxima con respecto al nivel de enfermedad, asi mismo encontramos datos atipicos en los niveles 0 y 2 (outliers)
+
+5.4# Graficos de dispersion como age vs chol (para pregunta de relacion lineal entre edad y thalch)
+```{r dispersion, echo=FALSE}
+#age y thalch
+Dispersion_age_thalch <- ggplot(heart_imp2, aes(x = age, y = thalch)) +
+  geom_point(
+    shape = 21,
+    color = "#2C7FB8", # color del borde
+    fill = scales::alpha("#2C7FB8", 0.2), # mismo color, 20% opacidad
+    size = 2,
+    stroke = 0.8
+  ) +
+  geom_smooth(
+    method = "lm",
+    se = FALSE,
+    color = "black",
+    linetype = "dashed"
+  ) +
+  labs(
+    title = "Relación entre age y thalch",
+    x = "age",
+    y = "thalch"
+  ) +
+  theme_minimal(base_size = 20) +
+  theme(panel.grid.minor = element_blank())
+Dispersion_age_thalch
+
+#age y trestbps
+Dispersion_age_trestbps <- ggplot(heart_imp2, aes(x = age, y = trestbps)) +
+  geom_point(
+    shape = 21,
+    color = "#2C7FB8", # color del borde
+    fill = scales::alpha("#2C7FB8", 0.2), # mismo color, 20% opacidad
+    size = 2,
+    stroke = 0.8
+  ) +
+  geom_smooth(
+    method = "lm",
+    se = FALSE,
+    color = "black",
+    linetype = "dashed"
+  ) +
+  labs(
+    title = "Relación entre age y trestbps",
+    x = "age",
+    y = "trestbps"
+  ) +
+  theme_minimal(base_size = 20) +
+  theme(panel.grid.minor = element_blank())
+Dispersion_age_trestbps
+
+#num y oldpeak
+Dispersion_num_oldpeak <- ggplot(heart_imp2, aes(x = num, y = oldpeak)) +
+  geom_point(
+    shape = 21,
+    color = "#2C7FB8", # color del borde
+    fill = scales::alpha("#2C7FB8", 0.2), # mismo color, 20% opacidad
+    size = 10,
+    stroke = 0.8
+  ) +
+  geom_smooth(
+    method = "lm",
+    se = FALSE,
+    color = "black",
+    linetype = "dashed"
+  ) +
+  labs(
+    title = "Relación entre Oldpeak y Nivel de enfermedad",
+    x = "Nivel de enfermedad",
+    y = "Oldpeak"
+  ) +
+  theme_minimal(base_size = 20) +
+  theme(panel.grid.minor = element_blank())
+Dispersion_num_oldpeak
+
+
+#age y chol
+Dispersion_age_chol <- ggplot(heart_imp2, aes(x = age, y = chol)) +
+  geom_point(
+    shape = 21,
+    color = "#2C7FB8", # color del borde
+    fill = scales::alpha("#2C7FB8", 0.2), # mismo color, 20% opacidad
+    size = 2,
+    stroke = 0.8
+  ) +
+  geom_smooth(
+    method = "lm",
+    se = FALSE,
+    color = "black",
+    linetype = "dashed"
+  ) +
+  labs(
+    title = "Relación entre Edad y Nivel de Colesterol",
+    x = "Nivel de enfermedad",
+    y = "Nivel de colesterol"
+  ) +
+  theme_minimal(base_size = 20) +
+  theme(panel.grid.minor = element_blank())
+Dispersion_age_chol
+
+#num y chol
+Dispersion_num_chol <- ggplot(heart_imp2, aes(x = num, y = chol)) +
+  geom_point(
+    shape = 21,
+    color = "#2C7FB8", # color del borde
+    fill = scales::alpha("#2C7FB8", 0.2), # mismo color, 20% opacidad
+    size = 5,
+    stroke = 0.8
+  ) +
+  geom_smooth(
+    method = "lm",
+    se = FALSE,
+    color = "black",
+    linetype = "dashed"
+  ) +
+  labs(
+    title = "Relación entre Nivel de enfermedad y Nivel de Colesterol",
+    x = "Nivel de enfermedad",
+    y = "Nivel de colesterol"
+  ) +
+  theme_minimal(base_size = 20) +
+  theme(panel.grid.minor = element_blank())
+Dispersion_num_chol
+
+
+```
+El diagrama de dispersión de age vs thalch nos muestra una tendencia lineal negativa entre la edad y el thalch, por lo tanto, la frecuencia máxima alcanzada va disminuyendo conforme avanza la edad, su relación es débil puesto que podemos observar aun varios individuos con edad avanzada que cuentan con frecuencias cardiacas máximas altas
+
+### Pregunta orientadora 3
+Utilizando un enfoque frecuentista, si seleccionas un paciente hombre al azar de este conjunto de datos, ¿cuál es la probabilidad de que padezca una enfermedad cardíaca? ¿Cómo cambia esta probabilidad si sabes que, además, sufre de dolor en el pecho no relacionado con angina?
+```{r orientadora3, echo=FALSE}
+
+heart_2$num <- as.numeric(as.character(heart_2$num)) #convertimos a numero num
+#buscamos cantidad de hombres
+hombres <- sum(heart_2$sex == 1)
+#buscamos cuantos hombres hay con enfermedad
+# hombres con enfermedad 
+hombres_enfermos <- sum(heart_2$sex == 1 & heart_2$num >= 1)
+
+# probabilidad de que sea hombre con enfermedad
+P_enfermedad_hombre <- hombres_enfermos / hombres
+print(P_enfermedad_hombre)
+
+# Hombres con dolor
+table(heart_2$cp)
+hombres_no_anginal <- sum(heart_2$sex == 1 & heart_2$cp == "non-anginal")
+
+# Hombres con dolor y enfermedad
+hombres_dolor_enfermos <- sum(  heart_2$sex == 1 &  heart_2$cp == "non-anginal" &  heart_2$num >= 1)
+
+# Probabilidad de ser hombre con dolor y enfermedad
+P_enfermedad_dado_hombre_no_anginal <- hombres_dolor_enfermos / hombres_no_anginal
+print(P_enfermedad_dado_hombre_no_anginal)
+
+
+
+```
+En esta muestra, P(enfermedad | hombre) es 63,22%. Al restringir a hombres con dolor no anginoso, P(enfermedad | hombre, dolor no anginoso) es 44,37%. Son proporciones de esta base y no estimaciones clínicas para la población general.
+
+## Conclusiones
+El análisis exploratorio describe asociaciones entre edad, presión en reposo, colesterol, frecuencia cardíaca máxima y oldpeak con el nivel num registrado en la muestra.
+Las visualizaciones resumen distribuciones, valores atípicos y asociaciones observadas. No son una herramienta de diagnóstico.
+Para el enfoque frecuentista, se calcula P(num >= 1 | hombre) y P(num >= 1 | hombre, dolor no anginoso). En esta muestra, las estimaciones son 63,22% y 44,37%, respectivamente.
+Por último, este análisis se realizó en condiciones de muestra, por lo tanto no necesariamente representa afirmaciones para la población general.
+
+
