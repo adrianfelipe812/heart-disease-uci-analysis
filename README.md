@@ -27,7 +27,7 @@ Estas son descripciones del conjunto y del tratamiento realizado, no inferencias
 
 ## Visualizaciones
 
-### Asociación exploratoria de variables con `num`
+### Asociación exploratoria de variables con `num` 
 
 ![Mapa de calor de correlaciones](figures/mapa_calor.png)
 
