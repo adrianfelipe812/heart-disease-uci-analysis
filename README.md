@@ -56,4 +56,4 @@ El código del proyecto no tiene una licencia explícita por ahora.
 
 ## Nota de uso
 
-Este análisis tiene fines académicos y de portafolio. No es una herramienta de diagnóstico, no estima riesgo individual y no reemplaza evaluación profesional. Las proporciones observadas dependen de la selección de pacientes y de las decisiones de limpieza e imputación.
+Este análisis tiene fines académicos y de portafolio. No es una herramienta de diagnóstico, no estima riesgo individual y no reemplaza evaluación profesional. Las proporciones observadas dependen de la selección de pacientes y de las decisiones de limpieza e imputación. 
