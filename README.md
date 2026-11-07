@@ -23,6 +23,19 @@ Análisis estadístico en R de registros clínicos del conjunto **Heart Disease*
 - La proporción con `num >= 1` es 63,22 % entre los hombres de este archivo. Entre hombres cuyo tipo de dolor es `non-anginal`, es 44,37 %.
 - El conjunto tiene valores faltantes y ceros en `trestbps` y `chol`; el informe convierte esos ceros a faltantes antes de aplicar Hot Deck.
 
+**Calidad de datos del archivo original (920 registros)**
+
+| Variable | Faltantes | Observación |
+|---|---|---|
+| `ca` | 611 (66,4 %) | Ausente en ≥ 96 % de los registros fuera de Cleveland |
+| `thal` | 486 (52,8 %) | 1 % en Cleveland frente a 42–90 % en los otros centros |
+| `slope` | 309 (33,6 %) | |
+| `chol` | 30 + 172 ceros (22,0 %) | Un colesterol de 0 no es fisiológico: todos los registros de Suiza y 24 % de VA Long Beach tienen 0 |
+| `fbs` | 90 (9,8 %) | |
+| `oldpeak` / `thalch` / `exang` / `trestbps` | 62 / 55 / 55 / 59 (+1 cero en `trestbps`) | |
+
+Los faltantes no son aleatorios: dependen del centro (`dataset`), por lo que la imputación y las comparaciones entre centros deben leerse con cautela.
+
 Estas son descripciones del conjunto y del tratamiento realizado, no inferencias clínicas. La imputación Hot Deck es una imputación única, por lo que las gráficas y resúmenes no reflejan la incertidumbre entre posibles imputaciones. Las correlaciones con `num` son exploratorias: `num` es una variable ordinal y Pearson no demuestra causalidad.
 
 ## Visualizaciones
