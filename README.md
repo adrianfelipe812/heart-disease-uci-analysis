@@ -65,7 +65,7 @@ El informe lee el archivo con la ruta relativa `data/heart_disease_uci.csv`; no 
 
 Janosi, A., Steinbrunn, W., Pfisterer, M. y Detrano, R. **Heart Disease**. UCI Machine Learning Repository, conjunto 45. [Página del conjunto y documentación](https://archive.ics.uci.edu/dataset/45/heart+disease) · [DOI: 10.24432/C52P4X](https://doi.org/10.24432/C52P4X). UCI indica licencia **CC BY 4.0** para los datos; se atribuye aquí a sus autores y al repositorio.
 
-El código del proyecto no tiene una licencia explícita por ahora.
+El código, el informe y las figuras de este proyecto se publican bajo [CC BY 4.0](LICENSE), la misma licencia de los datos.
 
 ## Nota de uso
 
